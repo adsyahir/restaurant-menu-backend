@@ -2,24 +2,25 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Actions\RegisterOwner;
+use App\Http\Requests\RegisterRequest;
+use Illuminate\Http\JsonResponse;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
+    /**
+     * Register a new owner: creates the account, their workspace and membership,
+     * then issues an API token.
+     */
+    public function register(RegisterRequest $request, RegisterOwner $action): JsonResponse
     {
-        $validatedData = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
+        $user = $action->handle($request->validated());
 
-        $user = \App\Models\User::create([
-            'name' => $validatedData['name'],
-            'email' => $validatedData['email'],
-            'password' => bcrypt($validatedData['password']),
-        ]);
+        $token = $user->createToken('auth')->plainTextToken;
 
-        return response()->json(['message' => 'User registered successfully', 'user' => $user], 201);
+        return response()->json([
+            'token' => $token,
+            'user' => $user->load('currentWorkspace'),
+        ], 201);
     }
 }

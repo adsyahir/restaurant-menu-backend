@@ -14,6 +14,9 @@ return new class extends Migration
         Schema::create('workspaces', function (Blueprint $table) {
             $table->id();
 
+            // Public, opaque identifier for API routes (never expose the bigint id)
+            $table->uuid('uuid')->unique();
+
             // Identity
             $table->string('name');
             $table->string('slug')->unique();
@@ -27,12 +30,9 @@ return new class extends Migration
             $table->string('state')->nullable();          // state / province / region
             $table->char('country_code', 2)->nullable();  // ISO 3166-1 alpha-2, e.g. MY, SG, US
 
-            // Localization
+            // Localization (derived from country_code at registration)
             $table->char('currency', 3)->default('USD');  // ISO 4217, e.g. MYR, SGD, USD
             $table->string('timezone')->default('UTC');   // IANA tz, e.g. Asia/Kuala_Lumpur
-
-            // Contact
-            $table->string('phone')->nullable();          // store in E.164, e.g. +60123456789
 
             // Subscription plan (free | pro | business)
             $table->string('plan')->default('free');
