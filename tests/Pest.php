@@ -15,7 +15,8 @@ use Tests\TestCase;
 */
 
 pest()->extend(TestCase::class)
- // ->use(RefreshDatabase::class)
+    ->use(RefreshDatabase::class)
+    ->beforeEach(fn () => cache()->flush()) // reset rate-limiter counters between tests
     ->in('Feature');
 
 /*
@@ -44,7 +45,45 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+use App\Models\User;
+use App\Models\Workspace;
+use Laravel\Sanctum\Sanctum;
+
+/**
+ * Create an owner user with a workspace, authenticate as them for API calls,
+ * and return both. The workspace becomes the user's current workspace.
+ *
+ * @return array{0: User, 1: Workspace}
+ */
+function actingAsOwner(): array
 {
-    // ..
+    $user = User::factory()->create();
+    $workspace = Workspace::factory()->create(['owner_id' => $user->id]);
+    $workspace->members()->attach($user->id, ['role' => 'admin']);
+    $user->update(['current_workspace_id' => $workspace->id]);
+
+    Sanctum::actingAs($user);
+
+    return [$user, $workspace];
+}
+
+/**
+ * Authenticate as a non-owner member of a workspace with the given role
+ * (e.g. 'waiter', 'kitchen'). Returns the user and the workspace.
+ *
+ * @return array{0: User, 1: Workspace}
+ */
+function actingAsMember(string $role = 'waiter'): array
+{
+    $owner = User::factory()->create();
+    $workspace = Workspace::factory()->create(['owner_id' => $owner->id]);
+    $workspace->members()->attach($owner->id, ['role' => 'admin']);
+
+    $member = User::factory()->create();
+    $workspace->members()->attach($member->id, ['role' => $role]);
+    $member->update(['current_workspace_id' => $workspace->id]);
+
+    Sanctum::actingAs($member);
+
+    return [$member, $workspace];
 }
