@@ -3,13 +3,17 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Workspace extends Model
 {
     /** Auto-generate a UUID for the `uuid` column on create. */
+    use HasFactory;
+
     use HasUuids;
 
     /**
@@ -31,8 +35,20 @@ class Workspace extends Model
         'currency',
         'timezone',
         'plan',
+        'subscription_status',
+        'renews_on',
         'owner_id',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'renews_on' => 'date',
+        ];
+    }
 
     /**
      * Mirror the migration's column defaults.
@@ -76,13 +92,53 @@ class Workspace extends Model
     }
 
     /**
+     * Read-only when the owner's subscription doesn't cover this restaurant:
+     * either their free trial has lapsed, or it falls beyond their plan's
+     * restaurant limit (e.g. after a downgrade). Writes are blocked; reads stay.
+     */
+    public function isLocked(): bool
+    {
+        $owner = $this->owner;
+
+        if ($owner === null) {
+            return false;
+        }
+
+        if ($owner->trialExpired()) {
+            return true;
+        }
+
+        if ($owner->planLimit() === null) {
+            return false;
+        }
+
+        return ! $owner->activeOwnedWorkspaceIds()->contains($this->id);
+    }
+
+    /**
      * Members of this workspace (with their per-workspace role).
      */
     public function members(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'workspace_user')
-            ->withPivot('role')
+            ->withPivot('role', 'is_active')
             ->withTimestamps();
+    }
+
+    /**
+     * Saved payment methods (local — no Stripe).
+     */
+    public function paymentMethods(): HasMany
+    {
+        return $this->hasMany(PaymentMethod::class);
+    }
+
+    /**
+     * Billing history.
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
     }
 
     // Structured location (Malaysia). Null for other countries — which use the

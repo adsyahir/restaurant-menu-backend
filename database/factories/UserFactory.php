@@ -30,7 +30,26 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            // Account subscription (mirrors the users table defaults so the
+            // model instance carries them without a refresh).
+            'plan' => 'free',
+            'subscription_status' => 'trialing',
+            'trial_ends_at' => now()->addMonths(3),
+            'renews_on' => null,
         ];
+    }
+
+    /**
+     * A paid Pro account (up to 5 restaurants).
+     */
+    public function pro(): static
+    {
+        return $this->state(fn () => [
+            'plan' => 'pro',
+            'subscription_status' => 'active',
+            'trial_ends_at' => null,
+            'renews_on' => now()->addMonth()->toDateString(),
+        ]);
     }
 
     /**
