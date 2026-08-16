@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Models\User;
 use App\Models\Workspace;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class RegisterOwner
@@ -16,10 +17,19 @@ class RegisterOwner
     public function handle(array $data): User
     {
         return DB::transaction(function () use ($data): User {
+            // Subscription lives on the account. Free plans start a 3-month
+            // trial; paid plans are active with a monthly renewal.
+            $plan = $data['plan'];
+            $isFree = $plan === 'free';
+
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'password' => $data['password'], // hashed via the model cast
+                'plan' => $plan,
+                'subscription_status' => $isFree ? 'trialing' : 'active',
+                'trial_ends_at' => $isFree ? Carbon::now()->addMonths(3) : null,
+                'renews_on' => $isFree ? null : Carbon::now()->addMonth()->toDateString(),
             ]);
 
             $countryCode = strtoupper($data['country_code']);
