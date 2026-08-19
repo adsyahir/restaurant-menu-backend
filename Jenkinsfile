@@ -83,7 +83,6 @@ pipeline {
   }
 
   post {
-    always  { sh 'rm -f k8s/.env.deploy || true' }
     success { echo 'Backend deployed.' }
     failure { echo 'Backend pipeline failed — see stage logs.' }
   }
