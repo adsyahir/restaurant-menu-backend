@@ -1,0 +1,15 @@
+.git
+.gitignore
+node_modules
+vendor
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+tests
+.env
+.env.*
+*.md
+.phpunit.result.cache
+# NOTE: never add "docker" or "Dockerfile" here —
+# the build copies docker/entrypoint.sh
