@@ -21,6 +21,7 @@ pipeline {
   environment {
     NS    = 'rms'
     IMAGE = 'restaurant-menu-backend'
+    VOL   = 'jenkins_jenkins_home'   // the Jenkins home volume (docker volume ls)
   }
 
   stages {
@@ -31,7 +32,10 @@ pipeline {
     stage('Test') {
       steps {
         sh '''
-          docker run --rm -v "$PWD":/app -w /app \
+          # The workspace lives in the jenkins volume, not on the host FS. Mount
+          # the volume by name (-v $VOL) and cd to $WORKSPACE so the sibling
+          # container sees the checked-out files (docker-outside-of-docker).
+          docker run --rm -v "$VOL":/var/jenkins_home -w "$WORKSPACE" \
             -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: \
             composer:2 sh -c '
               composer install --no-interaction --prefer-dist --no-progress
