@@ -1,0 +1,23 @@
+# Exposes Grafana on grafana.adsyahir.com via k3s Traefik.
+# (Grafana itself is installed by the Helm chart into the monitoring namespace
+#  as the Service "kps-grafana" on port 80.)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana
+  namespace: monitoring
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: grafana.adsyahir.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kps-grafana
+                port:
+                  number: 80

@@ -1,0 +1,37 @@
+# Alert rules. kube-prometheus-stack evaluates PrometheusRules carrying the
+# `release: kps` label. Alerts show in Prometheus/Alertmanager and Grafana.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: rms-alerts
+  namespace: monitoring
+  labels:
+    release: kps
+spec:
+  groups:
+    - name: rms.rules
+      rules:
+        - alert: BackendNoReplicas
+          expr: kube_deployment_status_replicas_available{namespace="rms",deployment="rms-backend"} < 1
+          for: 2m
+          labels: { severity: critical }
+          annotations:
+            summary: "rms-backend has no available replicas"
+        - alert: FrontendNoReplicas
+          expr: kube_deployment_status_replicas_available{namespace="rms",deployment="rms-frontend"} < 1
+          for: 2m
+          labels: { severity: critical }
+          annotations:
+            summary: "rms-frontend has no available replicas"
+        - alert: PostgresDown
+          expr: pg_up == 0
+          for: 1m
+          labels: { severity: critical }
+          annotations:
+            summary: "Postgres exporter reports the database is down"
+        - alert: PodRestarting
+          expr: increase(kube_pod_container_status_restarts_total{namespace="rms"}[15m]) > 3
+          for: 5m
+          labels: { severity: warning }
+          annotations:
+            summary: "A pod in rms is restarting repeatedly ({{ $labels.pod }})"

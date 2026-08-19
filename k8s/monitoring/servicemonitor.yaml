@@ -1,0 +1,19 @@
+# Tells the kube-prometheus-stack Prometheus to scrape the postgres exporter.
+# The `release: kps` label is REQUIRED — the stack only picks up ServiceMonitors
+# carrying its Helm release name (change if you named the release differently).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgres-exporter
+  namespace: monitoring
+  labels:
+    release: kps
+spec:
+  namespaceSelector:
+    matchNames: [rms]
+  selector:
+    matchLabels:
+      app: postgres-exporter
+  endpoints:
+    - port: metrics
+      interval: 15s
