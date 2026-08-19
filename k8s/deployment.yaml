@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-backend
+  namespace: rms
+spec:
+  replicas: 2
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels:
+      app: rms-backend
+  template:
+    metadata:
+      labels:
+        app: rms-backend
+    spec:
+      # Prod: pull from a private registry. Uncomment once registry-token exists.
+      # imagePullSecrets:
+      #   - name: registry-token
+
+      # nginx serves static files from public/, so copy it out of the app image
+      # into a volume both containers share.
+      initContainers:
+        - name: copy-public
+          image: restaurant-menu-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "cp -R /var/www/html/public/. /public-share/"]
+          volumeMounts:
+            - name: public-files
+              mountPath: /public-share
+
+      containers:
+        # --- PHP application (php-fpm, FastCGI on 9000) ---
+        - name: app
+          image: restaurant-menu-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9000
+          # All config + secrets, rendered from .env into these two.
+          envFrom:
+            - configMapRef:
+                name: rms-config
+            - secretRef:
+                name: rms-secret
+          resources:
+            requests: { cpu: "100m", memory: "192Mi" }
+            limits:   { cpu: "1",    memory: "512Mi" }
+
+        # --- web front (nginx -> php-fpm over localhost) ---
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet: { path: /up, port: 80 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /up, port: 80 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+            - name: public-files
+              mountPath: /var/www/html/public
+              readOnly: true
+          resources:
+            requests: { cpu: "50m",  memory: "64Mi" }
+            limits:   { cpu: "500m", memory: "128Mi" }
+
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: rms-nginx-config
+        - name: public-files
+          emptyDir: {}

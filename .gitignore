@@ -27,3 +27,14 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# k8s cluster env (real values — never commit)
+.env.k8s
+k8s/.env.k8s
+
+# envsubst secret values (real — never commit)
+secret.env
+k8s/secret.env
+
+# k8s cluster env (real values — never commit)
+k8s/.env

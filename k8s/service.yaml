@@ -1,0 +1,15 @@
+# ClusterIP Service — a stable in-cluster address for the deployment's pods.
+# The Ingress (and any other pod) reaches the app at  http://rms-backend  (port 80).
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-backend
+  namespace: rms
+spec:
+  type: ClusterIP
+  selector:
+    app: rms-backend          # matches the Deployment's pod labels
+  ports:
+    - name: http
+      port: 80           # the port the Service listens on
+      targetPort: 80     # nginx sidecar's container port

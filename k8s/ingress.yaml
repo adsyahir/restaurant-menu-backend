@@ -1,0 +1,38 @@
+# Front door: routes your domain to the rms-backend Service. Traefik-flavored
+# (k3s ships Traefik as the default ingress controller — nothing to install).
+# The host is derived from APP_URL in .env (scheme stripped), then rendered with
+# envsubst (NOT kustomize — apply -k doesn't substitute vars):
+#   set -a; . ../.env; set +a
+#   INGRESS_HOST=$(printf '%s' "$APP_URL" | sed -E 's#^https?://##; s#/.*##')
+#   INGRESS_HOST="$INGRESS_HOST" envsubst '$INGRESS_HOST' < ingress.yaml | kubectl apply -n rms -f -
+# Point the host's DNS A record at the server's public IP.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rms-ingress
+  namespace: rms
+  annotations:
+    # k3s Traefik entrypoints: web = :80, websecure = :443
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    # --- HTTPS: pick ONE ---
+    # A) cert-manager (uncomment + the tls: block below), needs a ClusterIssuer:
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # B) Traefik's own ACME resolver (configured in the Traefik install):
+    # traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
+spec:
+  ingressClassName: traefik
+  # Uncomment for TLS (cert-manager fills rms-tls; for resolver B drop secretName)
+  # tls:
+  #   - hosts: [${INGRESS_HOST}]
+  #     secretName: rms-tls
+  rules:
+    - host: ${INGRESS_HOST}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rms-backend
+                port:
+                  number: 80

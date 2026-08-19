@@ -1,0 +1,74 @@
+# Postgres inside the cluster: a headless Service for stable DNS + a StatefulSet
+# with its own persistent disk. The app reaches it at host "postgres" (DB_HOST).
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: rms
+spec:
+  clusterIP: None          # headless — gives the StatefulSet a stable DNS name
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: rms
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          # Reuse the same DB name / user / password the app uses.
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef: { name: rms-config, key: DB_DATABASE }
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef: { name: rms-config, key: DB_USERNAME }
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: rms-secret, key: DB_PASSWORD }
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata   # subdir avoids lost+found issues
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "1",    memory: "1Gi" }
+  # Each replica gets its own PersistentVolume that survives pod restarts.
+  volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi

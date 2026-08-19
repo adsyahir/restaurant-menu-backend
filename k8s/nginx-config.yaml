@@ -1,0 +1,26 @@
+# nginx config for the sidecar. It talks to php-fpm in the same pod over
+# 127.0.0.1:9000 and serves the app's public/ folder.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rms-nginx-config
+  namespace: rms
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+        root /var/www/html/public;
+        index index.php;
+
+        location / {
+            try_files $uri $uri/ /index.php?$query_string;
+        }
+
+        location ~ \.php$ {
+            fastcgi_pass 127.0.0.1:9000;      # php-fpm sidecar, same pod
+            fastcgi_index index.php;
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        }
+    }

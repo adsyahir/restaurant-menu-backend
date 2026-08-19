@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: rms
+
+# The rms-env Secret is NOT here — it's built from the single k8s/.env file:
+#   kubectl create secret generic rms-env --from-env-file=.env \
+#     --dry-run=client -o yaml | kubectl apply -n rms -f -
+# k8s/.env is the one source of truth for cluster values (git-ignored).
+resources:
+  - postgres.yaml
+  - nginx-config.yaml
+  - deployment.yaml
+  - service.yaml
+  # ingress.yaml is NOT here — it's a ${INGRESS_HOST} template, applied with
+  # envsubst separately (apply -k doesn't substitute vars).
